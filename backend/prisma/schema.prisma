@@ -1,0 +1,53 @@
+// Configuração do gerador do Prisma Client (o código que usamos no Node)
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Fonte de dados: SQLite, lendo a URL do .env
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Campaign: campanha de marketing cadastrada manualmente
+// ─────────────────────────────────────────────────────────────
+model Campaign {
+  id        String   @id @default(uuid())
+  name      String
+  channel   String // Ex.: "Google Ads", "Meta Ads", "LinkedIn"
+  budget    Float // Orçamento total previsto da campanha
+  status    String   @default("active") // active | paused | finished
+  startDate DateTime
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relação 1:N — uma campanha possui vários registros de analytics
+  analyticsRecords AnalyticsRecord[]
+
+  @@map("campaigns")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AnalyticsRecord: linha "crua" importada do CSV de Analytics
+// ─────────────────────────────────────────────────────────────
+model AnalyticsRecord {
+  id          String   @id @default(uuid())
+  date        DateTime // Dia a que os números se referem
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  cost        Float    @default(0) // Custo/investimento no dia
+  conversions Int      @default(0)
+  revenue     Float    @default(0) // Receita gerada no dia
+
+  createdAt DateTime @default(now())
+
+  // Chave estrangeira para a campanha dona do registro
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("analytics_records")
+}
