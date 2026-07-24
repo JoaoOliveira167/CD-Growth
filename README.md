@@ -55,53 +55,38 @@ Times de marketing costumam viver entre planilhas desconectadas e dashboards que
 
 ## 🎬 Demonstração
 
-> **📌 Nota:** as imagens e GIFs abaixo devem ser capturados da sua própria instância rodando localmente. Veja [como capturar](#como-capturar-as-mídias) logo abaixo.
-
 <div align="center">
 
 ### Dashboard
+
+Visão geral com KPIs consolidados, evolução temporal da receita, comparativo por canal e os insights mais críticos gerados automaticamente.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
 ### Tema claro e escuro
 
-<img src="docs/screenshots/theme-light.png" width="49%" alt="Tema claro" />
-<img src="docs/screenshots/theme-dark.png" width="49%" alt="Tema escuro" />
+A preferência é persistida no navegador e os gráficos são redesenhados com a paleta correta em tempo real.
 
-### Importação de CSV em ação
-
-![Importação](docs/gifs/import-flow.gif)
-
-### Growth Engine gerando insights
-
-![Insights](docs/gifs/insights.gif)
-
-### Layout responsivo
-
-<img src="docs/screenshots/mobile.png" width="32%" alt="Visão mobile" />
+![Alternância entre tema claro e escuro](docs/gifs/claro-escuro.gif)
 
 </div>
 
-### Como capturar as mídias
+### Ampliando a galeria
 
-Crie a estrutura de pastas na raiz do repositório:
+As mídias ficam em `docs/screenshots/` e `docs/gifs/`. Para capturar novas:
 
-```bash
-mkdir -p docs/screenshots docs/gifs
-```
+**Screenshots (Windows):** `Win + Shift + S` para recortar a tela. Para a visão mobile, use `F12 → Ctrl+Shift+M` no Chrome antes de capturar.
 
-**Screenshots (Windows):** use `Win + Shift + S` para recortar a tela, ou `F12 → Ctrl+Shift+M` no Chrome para simular um dispositivo móvel antes de capturar.
+**GIFs:** o [ScreenToGif](https://www.screentogif.com/) (gratuito, Windows) é a opção mais simples. Grave em **até 1280px de largura**, **10–15 fps** e **menos de 15 segundos** — GIFs acima de 10 MB deixam o carregamento do README lento no GitHub.
 
-**GIFs:** recomendamos o [ScreenToGif](https://www.screentogif.com/) (gratuito, Windows). Grave em **até 1280px de largura**, **10–15 fps** e **menos de 15 segundos** — GIFs acima de 10 MB deixam o carregamento do README lento no GitHub.
+Fluxos que valem a pena registrar em seguida:
 
-Fluxos que valem a pena gravar:
-
-| Arquivo | O que gravar |
+| Sugestão de arquivo | O que gravar |
 |---|---|
-| `import-flow.gif` | Arrastar o CSV → barra de progresso → relatório colorido |
-| `insights.gif` | Clicar em "Reanalisar" → insights aparecendo → filtro por severidade |
-| `crud-campaign.gif` | Abrir modal → erro de validação → correção → campanha criada |
-| `theme-toggle.gif` | Alternar entre claro e escuro com os gráficos redesenhando |
+| `docs/gifs/importacao.gif` | Arrastar o CSV → barra de progresso → relatório colorido |
+| `docs/gifs/insights.gif` | Clicar em "Reanalisar" → insights aparecendo → filtro por severidade |
+| `docs/gifs/campanhas.gif` | Abrir modal → erro de validação → correção → campanha criada |
+| `docs/screenshots/mobile.png` | Layout responsivo com a sidebar em modo gaveta |
 
 ---
 
@@ -143,9 +128,10 @@ Fluxos que valem a pena gravar:
 O sistema é um **monorepo** com duas aplicações independentes que se comunicam via HTTP/JSON.
 
 ```
-growth-analytics-dashboard/
+CD-Growth/
 ├── backend/     → API REST (fonte da verdade)
-└── frontend/    → SPA (camada de apresentação)
+├── frontend/    → SPA (camada de apresentação)
+└── docs/        → Screenshots e GIFs da documentação
 ```
 
 O backend é a **fonte única de verdade**: persiste os dados, processa uploads e calcula todas as métricas de negócio. O frontend nunca recalcula métrica crítica — consome números já prontos e os visualiza.
@@ -333,8 +319,8 @@ frontend/
 ### Clonando o repositório
 
 ```bash
-git clone https://github.com/seu-usuario/growth-analytics-dashboard.git
-cd growth-analytics-dashboard
+git clone https://github.com/JoaoOliveira167/CD-Growth.git
+cd CD-Growth
 ```
 
 ### Backend
@@ -1062,7 +1048,7 @@ Distribuído sob a **Licença MIT**. Veja o arquivo [`LICENSE`](LICENSE) para o 
 ```
 MIT License
 
-Copyright (c) 2026 [Seu Nome]
+Copyright (c) 2026 João Victor Oliveira e Silva
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
