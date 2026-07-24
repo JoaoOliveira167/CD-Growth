@@ -1,34 +1,76 @@
 // Repository de Campaign: ÚNICA camada que acessa o Prisma diretamente.
-// Isola o ORM do resto do sistema — se um dia trocarmos SQLite por Postgres,
-// ou Prisma por outra ferramenta, só este arquivo muda (inversão de
-// dependência do SOLID). Não contém regra de negócio nem validação.
+// Isola o ORM do restante do sistema (inversão de dependência do SOLID):
+// trocar SQLite por Postgres, ou Prisma por outro ORM, muda só este arquivo.
+// Não contém regra de negócio nem validação.
 
 import { prisma } from '../database/prisma.js';
 
-export const campaignRepository = {
-  // Cria uma nova campanha com os dados já validados pela camada de service.
-  create(data) {
-    return prisma.campaign.create({ data });
-  },
+// Inclui a contagem de registros de analytics relacionados, sem carregar
+// todos eles — útil para a listagem do dashboard.
+const withAnalyticsCount = {
+  _count: { select: { analytics: true } },
+};
 
-  // Retorna todas as campanhas, da mais recente para a mais antiga.
-  findAll() {
-    return prisma.campaign.findMany({
-      orderBy: { createdAt: 'desc' },
+export const campaignRepository = {
+  // Insere uma nova campanha (dados já validados pelo DTO).
+  create(data) {
+    return prisma.campaign.create({
+      data,
+      include: withAnalyticsCount,
     });
   },
 
-  // Busca uma campanha pelo id. Retorna null se não existir.
+  /**
+   * Lista campanhas com filtros opcionais.
+   * @param {object} filters { source, goal }
+   */
+  findAll(filters = {}) {
+    const where = {};
+
+    // Filtros aplicados apenas quando informados.
+    if (filters.source) {
+      where.source = { contains: filters.source };
+    }
+    if (filters.goal) {
+      where.goal = filters.goal;
+    }
+
+    return prisma.campaign.findMany({
+      where,
+      orderBy: { createdAt: 'desc' }, // mais recentes primeiro
+      include: withAnalyticsCount,
+    });
+  },
+
+  // Busca por id. Retorna null quando não existe.
   findById(id) {
-    return prisma.campaign.findUnique({ where: { id } });
+    return prisma.campaign.findUnique({
+      where: { id },
+      include: withAnalyticsCount,
+    });
   },
 
-  // Atualiza os campos informados de uma campanha existente.
+  // Verifica duplicidade de nome (usado na regra de negócio do service).
+  // O parâmetro exceptId permite ignorar o próprio registro em updates.
+  findByName(name, exceptId = null) {
+    return prisma.campaign.findFirst({
+      where: {
+        name,
+        ...(exceptId ? { id: { not: exceptId } } : {}),
+      },
+    });
+  },
+
+  // Atualiza os campos informados.
   update(id, data) {
-    return prisma.campaign.update({ where: { id }, data });
+    return prisma.campaign.update({
+      where: { id },
+      data,
+      include: withAnalyticsCount,
+    });
   },
 
-  // Remove a campanha (e seus analytics em cascata, conforme o schema).
+  // Remove a campanha (analytics são apagados em cascata, conforme o schema).
   delete(id) {
     return prisma.campaign.delete({ where: { id } });
   },

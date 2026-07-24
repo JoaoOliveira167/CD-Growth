@@ -1,19 +1,19 @@
-// Erro de aplicação "esperado" (erro de negócio/validação), em oposição a
-// erros inesperados (bugs). Carrega um statusCode HTTP, o que permite ao
-// tratador global responder com o código certo sem adivinhar.
+// Erro de aplicação "esperado" (validação/negócio), em oposição a bugs.
+// Carrega statusCode HTTP e, opcionalmente, uma lista detalhada de erros
+// de campo — permitindo que o frontend destaque cada input inválido.
 
 export class AppError extends Error {
   /**
-   * @param {string} message  Mensagem legível para o cliente
-   * @param {number} statusCode  Código HTTP (400, 404, 409...). Padrão: 400
+   * @param {string} message      Mensagem principal, legível para o cliente.
+   * @param {number} statusCode   Código HTTP (400, 404, 409...). Padrão: 400.
+   * @param {Array<object>} details  Lista opcional [{ field, message }].
    */
-  constructor(message, statusCode = 400) {
+  constructor(message, statusCode = 400, details = []) {
     super(message);
     this.statusCode = statusCode;
-    // Marca como erro "operacional" (previsto), diferenciando de bugs reais.
-    this.isOperational = true;
+    this.details = details;
+    this.isOperational = true; // marca como erro previsto, não bug
 
-    // Mantém o stack trace limpo, apontando para onde o erro foi lançado.
     Error.captureStackTrace(this, this.constructor);
   }
 }

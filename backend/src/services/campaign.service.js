@@ -1,129 +1,83 @@
-// Service de Campaign: coração da regra de negócio. Valida os dados de
-// entrada, normaliza tipos (ex.: strings de data → Date) e garante invariantes
-// do domínio antes de delegar a persistência ao repository. Não conhece HTTP.
+// Service de Campaign: coração da regra de negócio.
+// Orquestra DTO (validação) + Repository (persistência) e aplica invariantes
+// do domínio, como unicidade de nome. NÃO conhece req/res — poderia ser
+// chamado por um cron, uma fila ou pelo importador de CSV da próxima fase.
 
 import { campaignRepository } from '../repositories/campaign.repository.js';
+import {
+  createCampaignDTO,
+  updateCampaignDTO,
+} from '../dtos/campaign.dto.js';
 import { AppError } from '../utils/AppError.js';
 
-// Status permitidos para uma campanha (regra de domínio).
-const VALID_STATUSES = ['active', 'paused', 'finished'];
-
-// Pequeno helper: se a condição for falsa, lança um erro de validação (400).
-function assert(condition, message) {
-  if (!condition) throw new AppError(message, 400);
-}
-
-/**
- * Valida e normaliza os dados de uma campanha.
- * @param {object} data  Payload recebido do cliente.
- * @param {object} opts
- * @param {boolean} opts.partial  Se true (update), só valida os campos presentes.
- * @returns {object}  Objeto limpo e tipado, pronto para o banco.
- */
-function normalizeAndValidate(data, { partial = false } = {}) {
-  const result = {};
-
-  // name — obrigatório na criação; se presente, mínimo de 2 caracteres.
-  if (!partial || data.name !== undefined) {
-    assert(
-      typeof data.name === 'string' && data.name.trim().length >= 2,
-      'O campo "name" é obrigatório e deve ter ao menos 2 caracteres.',
-    );
-    result.name = data.name.trim();
-  }
-
-  // channel — obrigatório na criação; não pode ser vazio.
-  if (!partial || data.channel !== undefined) {
-    assert(
-      typeof data.channel === 'string' && data.channel.trim().length > 0,
-      'O campo "channel" é obrigatório.',
-    );
-    result.channel = data.channel.trim();
-  }
-
-  // budget — obrigatório na criação; número maior que zero.
-  if (!partial || data.budget !== undefined) {
-    const budget = Number(data.budget);
-    assert(
-      !Number.isNaN(budget) && budget > 0,
-      'O campo "budget" deve ser um número maior que zero.',
-    );
-    result.budget = budget;
-  }
-
-  // status — opcional; se enviado, precisa estar na lista permitida.
-  if (data.status !== undefined) {
-    assert(
-      VALID_STATUSES.includes(data.status),
-      `O campo "status" deve ser um de: ${VALID_STATUSES.join(', ')}.`,
-    );
-    result.status = data.status;
-  }
-
-  // startDate — obrigatório na criação; precisa ser uma data válida.
-  if (!partial || data.startDate !== undefined) {
-    const startDate = new Date(data.startDate);
-    assert(
-      !Number.isNaN(startDate.getTime()),
-      'O campo "startDate" é obrigatório e deve ser uma data válida.',
-    );
-    result.startDate = startDate;
-  }
-
-  // endDate — opcional; se enviado, precisa ser uma data válida.
-  if (data.endDate !== undefined && data.endDate !== null) {
-    const endDate = new Date(data.endDate);
-    assert(
-      !Number.isNaN(endDate.getTime()),
-      'O campo "endDate" deve ser uma data válida.',
-    );
-    result.endDate = endDate;
-  }
-
-  // Regra cruzada: quando ambas as datas vierem no payload, o fim não pode
-  // ser anterior ao início.
-  if (result.startDate && result.endDate) {
-    assert(
-      result.endDate >= result.startDate,
-      'A data final não pode ser anterior à data inicial.',
-    );
-  }
-
-  return result;
-}
-
 export const campaignService = {
-  // Cria uma campanha após validar todos os campos obrigatórios.
-  async create(data) {
-    const clean = normalizeAndValidate(data, { partial: false });
-    return campaignRepository.create(clean);
+  /**
+   * Cria uma campanha.
+   * Regras: dados válidos (DTO) + nome único.
+   */
+  async create(payload) {
+    const data = createCampaignDTO(payload);
+
+    // Invariante de domínio: não permitir duas campanhas com o mesmo nome.
+    const existing = await campaignRepository.findByName(data.name);
+    if (existing) {
+      // 409 Conflict é o status correto para violação de unicidade.
+      throw new AppError('Já existe uma campanha com esse nome.', 409);
+    }
+
+    return campaignRepository.create(data);
   },
 
-  // Lista todas as campanhas.
-  async list() {
-    return campaignRepository.findAll();
+  /** Lista campanhas, com filtros opcionais de source e goal. */
+  async list(filters) {
+    return campaignRepository.findAll(filters);
   },
 
-  // Busca por id; se não existir, lança 404 (erro operacional tratado no handler).
+  /** Busca por id. Lança 404 quando não encontrada. */
   async getById(id) {
     const campaign = await campaignRepository.findById(id);
+
     if (!campaign) {
       throw new AppError('Campanha não encontrada.', 404);
     }
     return campaign;
   },
 
-  // Atualiza uma campanha existente (validação parcial: só o que veio no body).
-  async update(id, data) {
-    // Garante que a campanha existe antes de tentar atualizar.
-    await this.getById(id);
-    const clean = normalizeAndValidate(data, { partial: true });
-    return campaignRepository.update(id, clean);
+  /**
+   * Atualiza uma campanha existente (payload parcial).
+   * Precisa revalidar a regra cruzada de datas usando os valores JÁ salvos,
+   * pois o cliente pode enviar só uma das duas datas.
+   */
+  async update(id, payload) {
+    const current = await this.getById(id); // garante existência (404)
+    const data = updateCampaignDTO(payload);
+
+    // Unicidade de nome, ignorando o próprio registro.
+    if (data.name) {
+      const duplicate = await campaignRepository.findByName(data.name, id);
+      if (duplicate) {
+        throw new AppError('Já existe uma campanha com esse nome.', 409);
+      }
+    }
+
+    // Coerência de datas considerando o estado atual + as mudanças enviadas.
+    const startDate = data.startDate ?? current.startDate;
+    const endDate = data.endDate !== undefined ? data.endDate : current.endDate;
+
+    if (startDate && endDate && endDate < startDate) {
+      throw new AppError(
+        'Dados inválidos para atualizar a campanha.',
+        400,
+        [{ field: 'endDate', message: 'A data final não pode ser anterior à data inicial.' }],
+      );
+    }
+
+    return campaignRepository.update(id, data);
   },
 
-  // Remove uma campanha existente.
+  /** Remove uma campanha existente. */
   async remove(id) {
-    await this.getById(id);
+    await this.getById(id); // 404 se não existir
     return campaignRepository.delete(id);
   },
 };

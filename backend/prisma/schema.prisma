@@ -1,53 +1,84 @@
-// Configuração do gerador do Prisma Client (o código que usamos no Node)
+// Gerador do Prisma Client — o código JS que usamos no Node para consultar o banco.
 generator client {
   provider = "prisma-client-js"
 }
 
-// Fonte de dados: SQLite, lendo a URL do .env
+// Fonte de dados: SQLite, lendo a URL do arquivo .env.
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────────────────────────────────────
-// Campaign: campanha de marketing cadastrada manualmente
+// Campaign — a campanha de marketing cadastrada na plataforma.
+// É a entidade "pai": uma campanha agrupa vários registros de Analytics.
 // ─────────────────────────────────────────────────────────────
 model Campaign {
   id        String   @id @default(uuid())
-  name      String
-  channel   String // Ex.: "Google Ads", "Meta Ads", "LinkedIn"
-  budget    Float // Orçamento total previsto da campanha
-  status    String   @default("active") // active | paused | finished
-  startDate DateTime
-  endDate   DateTime?
+  name      String // Nome da campanha (ex.: "Black Friday 2025")
+  source    String // Origem/canal (ex.: "Google Ads", "Meta", "Organic")
+  budget    Float // Orçamento total previsto
+  goal      String // Objetivo da campanha (ex.: "Leads", "Vendas", "Awareness")
+  startDate DateTime // Data de início
+  endDate   DateTime? // Data de fim (opcional — campanha pode estar em andamento)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relação 1:N — uma campanha possui vários registros de analytics
-  analyticsRecords AnalyticsRecord[]
+  // Relação 1:N — uma campanha possui MUITOS registros de analytics.
+  analytics Analytics[]
 
   @@map("campaigns")
 }
 
 // ─────────────────────────────────────────────────────────────
-// AnalyticsRecord: linha "crua" importada do CSV de Analytics
+// Analytics — dados diários importados (via CSV) de uma campanha.
+// Cada linha representa as métricas de um dia para uma campanha.
+// É a entidade "filha": pertence a exatamente UMA campanha.
 // ─────────────────────────────────────────────────────────────
-model AnalyticsRecord {
-  id          String   @id @default(uuid())
-  date        DateTime // Dia a que os números se referem
-  impressions Int      @default(0)
-  clicks      Int      @default(0)
-  cost        Float    @default(0) // Custo/investimento no dia
-  conversions Int      @default(0)
-  revenue     Float    @default(0) // Receita gerada no dia
+model Analytics {
+  id             String   @id @default(uuid())
+  date           DateTime // Dia a que as métricas se referem
+  users          Int      @default(0) // Usuários únicos
+  sessions       Int      @default(0) // Sessões
+  pageViews      Int      @default(0) // Visualizações de página
+  bounceRate     Float    @default(0) // Taxa de rejeição (0 a 1, ou 0 a 100)
+  conversionRate Float    @default(0) // Taxa de conversão
+  revenue        Float    @default(0) // Receita gerada
+  cost           Float    @default(0) // Custo/investimento no dia
+  orders         Int      @default(0) // Número de pedidos
+  source         String // Origem do tráfego deste registro
+  impressions Int      @default(0) // Vezes que o anúncio foi exibido
+  clicks      Int      @default(0) // Cliques recebidos
 
   createdAt DateTime @default(now())
 
-  // Chave estrangeira para a campanha dona do registro
-  campaignId String
+  // ── Relacionamento com Campaign ──
+  campaignId String // Chave estrangeira: aponta para Campaign.id
   campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  @@index([campaignId])
-  @@map("analytics_records")
+  @@index([campaignId]) // Índice para acelerar buscas por campanha
+  @@map("analytics")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Insight — percepção/alerta gerado a partir da análise dos dados.
+// Entidade INDEPENDENTE: não tem relação direta com Campaign/Analytics
+// no schema. Serve como um "log" de descobertas (ex.: "ROAS abaixo da meta").
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Insight — diagnóstico gerado automaticamente pelo Growth Engine.
+// ─────────────────────────────────────────────────────────────
+model Insight {
+  id          String   @id @default(uuid())
+  code        String // Identificador da regra que gerou (ex.: "ROAS_LOW")
+  title       String // Título curto do diagnóstico
+  description String // O que foi detectado, com os números
+  suggestion  String // Ação recomendada
+  level       String   @default("info") // "info" | "warning" | "critical"
+  scope       String   @default("global") // "global" | "source:Meta Ads"
+  createdAt   DateTime @default(now())
+
+  @@index([code])
+  @@map("insights")
 }

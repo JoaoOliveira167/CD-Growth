@@ -12,6 +12,9 @@
     "prisma:studio": "prisma studio",
     "prisma:generate": "prisma generate"
   },
+   "prisma": {
+    "seed": "node prisma/seed.js"
+  },
     "dependencies": {
     "@prisma/client": "^5.19.0",
     "compression": "^1.7.4",

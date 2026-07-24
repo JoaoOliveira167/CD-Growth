@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply dark:bg-slate-950 dark:text-slate-100;
+    /* Transição suave ao alternar o tema */
+    @apply transition-colors duration-200;
+  }
+}
+
+@layer components {
+  /* Classe utilitária para os cartões, reutilizada em toda a aplicação */
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
+    @apply dark:border-slate-800 dark:bg-slate-900;
+  }
+}
